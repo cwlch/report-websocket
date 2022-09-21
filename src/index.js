@@ -57,34 +57,45 @@ class ReportWebSocket {
         try {
           const result = JSON.parse(event.data);
           if (isPlainObject(result)) {
-            const { type } = result.data;
-            switch (type) {
-              case 0: // 成员列表
-                isFunction(ReportWebSocket.onUserCountMessage) &&
-                  ReportWebSocket.onUserCountMessage(result.data);
-                break;
-              case 2: // 拉黑
-                isFunction(ReportWebSocket.onPullBack) &&
-                  ReportWebSocket.onPullBack(result.data);
-                break;
-              case 3: // 公告
-                isFunction(ReportWebSocket.onAnnouncement) &&
-                  ReportWebSocket.onAnnouncement(result.data);
-                break;
-              case 4: // 关闭连接
-                that.websocket.close();
-                break;
-              case 5: // 更新直播状态
-                isFunction(ReportWebSocket.onUpdateLiveStreamStatus) &&
-                  ReportWebSocket.onUpdateLiveStreamStatus(result.data);
-                break;
-              case 6: // 更新备注
-                isFunction(ReportWebSocket.onRemarkStatus) &&
-                  ReportWebSocket.onRemarkStatus(result.data);
-                break;
-              default:
-                break;
+            const { type,status } = result.data;
+			// 普通消息
+			if(status === ReportWebSocket.MessageStatus.normalStatus){
+				switch (type) {
+					case 1: //定时推送成员发言次数统计数据
+						isFunction(ReportWebSocket.onSpeakNumber) &&
+						  ReportWebSocket.onSpeakNumber(result.data);
+					case 2: // 拉黑
+					  isFunction(ReportWebSocket.onPullBack) &&
+						ReportWebSocket.onPullBack(result.data);
+					  break;
+					case 3: // 公告
+					  isFunction(ReportWebSocket.onAnnouncement) &&
+						ReportWebSocket.onAnnouncement(result.data);
+					  break;
+					case 4: // 关闭连接
+					  that.websocket.close();
+					  break;
+					case 5: // 更新直播状态
+					  isFunction(ReportWebSocket.onUpdateLiveStreamStatus) &&
+						ReportWebSocket.onUpdateLiveStreamStatus(result.data);
+					  break;
+					case 6: // 更新备注
+					  isFunction(ReportWebSocket.onRemarkStatus) &&
+						ReportWebSocket.onRemarkStatus(result.data);
+					  break;
+					default:
+					  break;
+				  }
+			} else if(status === ReportWebSocket.MessageStatus.initStatus){
+              // 有成员进来
+			  isFunction(ReportWebSocket.onMemberEntry) &&
+                    ReportWebSocket.onMemberEntry(result.data);
+            }else if(status === ReportWebSocket.MessageStatus.closeStatus){
+              // 有成员退出
+			  isFunction(ReportWebSocket.onMemberOut) &&
+			  ReportWebSocket.onMemberOut(result.data);
             }
+            
           }
         } catch (error) {}
       },
@@ -97,7 +108,15 @@ class ReportWebSocket {
 ReportWebSocket.onUserCountMessage = function (data) {
   logger.info("【用户列表】", data);
 };
-
+ReportWebSocket.onMemberEntry = function(data) {
+	logger.info("【成员加入】", data);
+}
+ReportWebSocket.onMemberOut = function(data) {
+	logger.info("【成员退出】", data);
+}
+ReportWebSocket.onSpeakNumber = function(data) {
+	logger.info("【成员评论次数】", data);
+}
 // 公告
 ReportWebSocket.onAnnouncement = function (data) {
   logger.info("【公告】", data);
@@ -150,6 +169,7 @@ ReportWebSocket.GeneralSmsEnum = {
   record: 1, // 记录
   remark: 6, // 备注
   ban: 7, // 禁言
+  time : 8 //观看时长
 };
 
 ReportWebSocket.initialize = async function (options = {}) {
@@ -213,6 +233,15 @@ ReportWebSocket.prototype.setRemark = function (params) {
   };
   this.websocket.send(JSON.stringify(data));
 };
+ReportWebSocket.prototype.reportTime = function (params) {
+	const data = {
+	  ...this.options,
+	  ...params,
+	  status: ReportWebSocket.MessageStatus.normalStatus,
+	  generalSmsEnum: ReportWebSocket.GeneralSmsEnum.time,
+	};
+	this.websocket.send(JSON.stringify(data));
+  };
 
 ReportWebSocket.prototype.reportBanChat = function (params) {
   const data = {
